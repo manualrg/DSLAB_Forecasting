@@ -1,6 +1,69 @@
 import pandas as pd
 from fbprophet import Prophet
+from statsmodels.tsa.stattools import kpss, adfuller
+import matplotlib.pyplot as plt
 
+# Region Visualization
+def plot_time_series_with_rolling(x: pd.Series, period: int, *args, **kwargs):
+    figsize =  kwargs.get('figsize', (16, 8))
+    title =  kwargs.get('title', x.name)
+    ylabel = kwargs.get('ylabel', '')
+    ax = x.plot(figsize=figsize, label=x.name, title=title)
+    x.rolling(period).mean().plot(label=f'{period} mave', color='red', ax=ax)
+    x.rolling(period).std().plot( label=f'{period} mstd', color='orange', ax=ax)
+    ax.set_ylabel(ylabel)
+    plt.legend()
+    return ax
+
+
+def plot_seas_model(model, *args, **kwargs):
+    figsize = kwargs.get("figsize", (16,12))
+    title = kwargs.get("title", "")
+    ylabel = kwargs.get("ylabel", "")
+    fig, axs = plt.subplots(3,1, sharex=True, figsize=figsize)
+    ax1,ax2,ax3 = axs
+    plt.suptitle(f'{title} Time Series Decomposition')
+    model.observed.plot(label='observed', legend=True, ax=ax1)
+    model.trend.plot(label='trend', legend=True, ax=ax1)
+    (model.observed- model.seasonal).plot(label='seas. adj.', legend=True, ax=ax1)
+    model.seasonal.plot(label='seasonal', legend=True, ax=ax2)
+    (model.observed-model.trend).plot(legend=True, label='detrended', ax=ax2)
+    model.resid.plot(legend=True, label='resids', ax=ax3)
+    
+    ax1.set_ylabel(ylabel)
+    ax2.set_ylabel(ylabel)
+    ax3.set_ylabel(ylabel)
+    return fig, axs
+
+# Region Statistical Analysis
+def wrap_adfuller(data, regression='c'):
+    adf_res_dict = {}
+    for col in data.columns:
+        adf_res = adfuller(data[col], regression =regression)
+        adf_res_dict[col] = adf_res
+        print(f'{col}: p-value: {adf_res[1]:0.2f}')
+    return adf_res_dict
+
+def wrap_kpss(data, regression='c', nlags='auto'):
+    kpss_res_dict = {}
+    for col in data.columns:
+        kpss_res = kpss(data[col], regression =regression)
+        kpss_res_dict[col] = kpss_res
+        print(f'{col}: p-value: {kpss_res[1]:0.2f}')
+    return kpss_res_dict
+
+def pairwise_corr_over_time(data, x: str, ys: list, nlags):
+    data_cp = data[[x] + ys].copy()
+    x_lags = []
+    for tau in range(nlags):
+        data_cp[f'{x}_lag{tau}'] = data_cp[x].shift(tau)
+        x_lags.append(f'{x}_lag{tau}')
+    data_cp = data_cp[nlags:].copy()
+    corr = data_cp.corr().loc[x_lags, ys]
+    return corr
+
+
+# Region Forecasting
 def exog_forecast(train_endog, train_exog, test_endog, test_exog, res):
     # https://www.statsmodels.org/devel/examples/notebooks/generated/statespace_forecasting.html
     nforecasts = 1
