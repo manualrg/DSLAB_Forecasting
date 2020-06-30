@@ -4,6 +4,18 @@ from statsmodels.tsa.stattools import kpss, adfuller
 import matplotlib.pyplot as plt
 
 # Region Visualization
+def plot_time_series_maves(x: pd.Series, periods: list, *args, **kwargs):
+    figsize =  kwargs.get('figsize', (16, 8))
+    title =  kwargs.get('title', x.name)
+    ylabel = kwargs.get('ylabel', '')
+    
+    ax = x.plot(figsize=figsize, label=x.name, title=title)
+    for tau in periods:
+        x.rolling(tau).mean().plot(label=f'{tau} mave', ax=ax)
+    ax.set_ylabel(ylabel)
+    plt.legend()
+    return ax
+
 def plot_time_series_with_rolling(x: pd.Series, period: int, *args, **kwargs):
     figsize =  kwargs.get('figsize', (16, 8))
     title =  kwargs.get('title', x.name)
